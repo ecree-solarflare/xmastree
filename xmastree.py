@@ -39,12 +39,15 @@ def check_file(f):
     in_comment = False
     in_struct = False
     in_function = False
+    is_diff = False
     viols = []
 
     for line in f.readlines():
         # Check for diff context lines, they will tell us whether we're in a
-        # function or a struct/union/enum definition
+        # function or a struct/union/enum definition.  They also let us know
+        # that this file is a diff
         if line.startswith('@@'):
+            is_diff = True
             _, _, context = line[2:].partition('@@')
             in_struct = False
             in_function = False
@@ -99,12 +102,13 @@ def check_file(f):
         # Remove whitespace, now we're done looking at indentation
         line = line.strip()
         if is_decl(line) and in_function:
-            if last_decl is not None and (plus or last_decl[1]):
+            if last_decl is not None and (plus or last_decl[1] or not is_diff):
                 if len(line) > len(last_decl[0]):
-                    viols.append(last_decl[0], line)
+                    viols.append((last_decl[0], line))
             last_decl = (line, plus)
         elif line:
             last_decl = None
+    return viols
 
 def report(name, viols):
     if viols:
