@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # Audit kernel patches or code for "Reverse Christmas Tree" compliance
 
-import sys
+import sys, os
 
 # 'bool' is not really primitive, but it's an omnipresent typedef
 # 'float' and 'double' are C primitive types, but should not be used in
@@ -39,6 +39,7 @@ def check_file(f):
     in_comment = False
     in_struct = False
     in_function = False
+    viols = []
 
     for line in f.readlines():
         # Check for diff context lines, they will tell us whether we're in a
@@ -100,16 +101,26 @@ def check_file(f):
         if is_decl(line) and in_function:
             if last_decl is not None and (plus or last_decl[1]):
                 if len(line) > len(last_decl[0]):
-                    print "WARNING: Reverse Christmas Tree Violation"
-                    print '\t'+last_decl[0]
-                    print '\t'+line
+                    viols.append(last_decl[0], line)
             last_decl = (line, plus)
         elif line:
             last_decl = None
 
+def report(name, viols):
+    if viols:
+        print "WARNING: Violation(s) in", name
+        for last, line in viols:
+            print '\t'+last
+            print '\t'+line
+            print
+    else:
+        print "No problems found in", name
+
 if len(sys.argv) == 1:
-    check_file(sys.stdin)
+    viols = check_file(sys.stdin)
+    report("input", viols)
 else:
     for fn in sys.argv[1:]:
-        print "==>%s<=="%(fn,)
-        check_file(open(fn, 'r'))
+        viols = check_file(open(fn, 'r'))
+        name = os.path.basename(fn)
+        report(name, viols)
