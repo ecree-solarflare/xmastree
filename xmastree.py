@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # Audit kernel patches or code for "Reverse Christmas Tree" compliance
 
-import sys, os
+import sys, os, re
 
 # 'bool' is not really primitive, but it's an omnipresent typedef
 # 'float' and 'double' are C primitive types, but should not be used in
@@ -9,6 +9,7 @@ import sys, os
 # While 'void' is a type, C does not permit declaring a variable of type
 # void.  The Standard does not give a rationale for this.
 primitive_types = ['signed', 'unsigned', 'char', 'short', 'int', 'long',
+                   'size_t', 'intptr_t', 'uintptr_t',
                    'bool', 'float', 'double', 'struct', 'union', 'enum']
 # Of course this list is non-exhaustive.  Fortunately the vast majority
 # of kernel types are bare structs rather than typedefs.
@@ -34,6 +35,8 @@ def is_decl(line):
     word, _, _ = line.partition(' ')
     return word in decl_openers
 
+location_re = re.compile(r'-\d+,\d+ \+(\d+),\d+')
+
 def check_file(f):
     last_decl = None
     in_comment = False
@@ -41,14 +44,19 @@ def check_file(f):
     in_function = False
     is_diff = False
     viols = []
+    li = 0 # line numbering
 
     for line in f.readlines():
+        li += 1
         # Check for diff context lines, they will tell us whether we're in a
         # function or a struct/union/enum definition.  They also let us know
-        # that this file is a diff
+        # that this file is a diff, and give us the current line number
         if line.startswith('@@'):
             is_diff = True
-            _, _, context = line[2:].partition('@@')
+            location, _, context = line[2:].partition('@@')
+            m = location_re.search(location)
+            if m:
+                li = int(m.group(1))
             in_struct = False
             in_function = False
             in_comment = False
@@ -61,6 +69,7 @@ def check_file(f):
         # If it's not a diff, we want all lines, but no line should ever
         # start with -, nor be indented by a single space.
         if line.startswith('-'):
+            li -= 1
             continue
         plus = False
         if line.startswith('+') or line.startswith(' '):
@@ -104,7 +113,7 @@ def check_file(f):
         if is_decl(line) and in_function:
             if last_decl is not None and (plus or last_decl[1] or not is_diff):
                 if len(line) > len(last_decl[0]):
-                    viols.append((last_decl[0], line))
+                    viols.append((last_decl[0], line, li))
             last_decl = (line, plus)
         elif line:
             last_decl = None
@@ -113,10 +122,10 @@ def check_file(f):
 def report(name, viols):
     if viols:
         print "WARNING: Violation(s) in", name
-        for last, line in viols:
+        for last, line, li in viols:
+            print "Line %d"%(li-1,)
             print '\t'+last
             print '\t'+line
-            print
     else:
         print "No problems found in", name
 
