@@ -36,8 +36,21 @@ def is_decl(line):
 
 last_decl = None
 in_comment = False
+in_struct = False
+in_function = False
 
 for line in sys.stdin.readlines():
+    # Check for diff context lines, they will tell us whether we're in a
+    # function or a struct/union/enum definition
+    if line.startswith('@@'):
+        _, _, context = line[2:].partition('@@')
+        in_struct = False
+        in_function = False
+        in_comment = False
+        if ':' in context or '(' in context:
+            in_function = context.strip()
+        elif 'struct' in context or 'enum' in context or 'union' in context:
+            in_struct = context.strip()
     # If it's a diff, we want lines starting with + or space, but not -,
     # and we want to strip the leading + before parsing further.
     # If it's not a diff, we want all lines, but no line should ever
@@ -48,28 +61,47 @@ for line in sys.stdin.readlines():
     if line.startswith('+') or line.startswith(' '):
         plus = line[0] == '+'
         line = line[1:]
-    # If we're not at least a single tab indented, we can't be inside a
-    # function, so ignore (and clear state)
-    if not line.startswith('\t'):
-        last_decl = None
-        continue
+    # Handle comments
     co = line.count('/*')
     cc = line.count('*/')
     if co > cc: in_comment = True
     if cc > co: in_comment = False
     if in_comment:
         continue
+    if line.strip().startswith('/*'):
+        # Assume the whole line is a comment
+        continue
+    # Ignore preprocessor directives
+    if line.startswith('#'):
+        continue
+    # Check for end of block (unindented closing brace)
+    if line.startswith('}'):
+        in_struct = False
+        in_function = False
+        in_comment = False
+    # If we're not at least a single tab indented, we can't be inside a
+    # function or struct, so just look for start-of-block
+    if not line.startswith('\t'):
+        in_function = False
+        in_struct = False
+        if line.startswith('{'):
+            # Must be a function, as structs etc are supposed to have
+            # their { at the end of the line
+            in_function = line.strip()
+            last_decl = None
+        elif '{' in line:
+            # Either a struct definition, or a declaration of a static
+            # struct variable.  Probably.
+            in_struct = line.strip()
+        continue
     # Remove whitespace, now we're done looking at indentation
     line = line.strip()
-    if is_decl(line):
+    if is_decl(line) and in_function:
         if last_decl is not None and (plus or last_decl[1]):
             if len(line) > len(last_decl[0]):
                 print "WARNING: Reverse Christmas Tree Violation"
                 print '\t'+last_decl[0]
                 print '\t'+line
         last_decl = (line, plus)
-    elif line.startswith('/*'):
-        # Assume the whole line is a comment
-        pass
     elif line:
         last_decl = None
