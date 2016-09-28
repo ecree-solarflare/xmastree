@@ -6,10 +6,10 @@ import sys, os, re
 # 'bool' is not really primitive, but it's an omnipresent typedef
 # 'float' and 'double' are C primitive types, but should not be used in
 # kernel code.
-# While 'void' is a type, C does not permit declaring a variable of type
-# void.  The Standard does not give a rationale for this.
+# While C does not permit declaring a variable of type void, derived
+# types (such as pointer to void) can be declared.
 primitive_types = ['signed', 'unsigned', 'char', 'short', 'int', 'long',
-                   'size_t', 'intptr_t', 'uintptr_t',
+                   'size_t', 'intptr_t', 'uintptr_t', 'void',
                    'bool', 'float', 'double', 'struct', 'union', 'enum']
 # Of course this list is non-exhaustive.  Fortunately the vast majority
 # of kernel types are bare structs rather than typedefs.
