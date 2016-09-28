@@ -1,0 +1,11 @@
+= xmastree =
+
+SYNOPSIS
+    xmastree file [file...]
+    xmastree < file
+DESCRIPTION
+    Audit patches or source files for Dave Miller™ Reverse Christmas Tree order
+    of declarations within functions.
+BUGS
+    Relies on fairly naïve line-based regexy parsing, which works on normally-
+    formatted C but could easily be confused by anything out of the ordinary.
