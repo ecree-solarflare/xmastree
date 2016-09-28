@@ -9,3 +9,5 @@ DESCRIPTION
 BUGS
     Relies on fairly naïve line-based regexy parsing, which works on normally-
     formatted C but could easily be confused by anything out of the ordinary.
+LICENSE
+    Released under the ISC License, see top of xmastree.py for details.
